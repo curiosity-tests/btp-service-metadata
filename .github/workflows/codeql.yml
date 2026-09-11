@@ -10,6 +10,7 @@
 # supported CodeQL languages.
 #
 name: "CodeQL"
+run-name: "CodeQL ${{ inputs.leg || github.event_name }} ${{ inputs.racecar_run }}"
 
 on:
   push:
@@ -19,8 +20,25 @@ on:
     branches: ["main"]
   schedule:
     - cron: "35 2 * * 3"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      leg:
+        description: "baseline (uninstrumented) or instrumented (under chalk/curiosity)"
+        type: choice
+        options: [instrumented, baseline]
+        default: baseline
+      profile:
+        description: "CrashOverride chalk profile"
+        type: string
+        default: curiosity-tests-racecar
+      racecar_run:
+        description: "racecar correlation token, echoed into the run name"
+        type: string
+        default: ""
 
+
+env:
+  CHALK_ON: ${{ inputs.leg == 'instrumented' }}
 jobs:
   analyze:
     name: Analyze
@@ -43,6 +61,7 @@ jobs:
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
+        continue-on-error: true   # racecar: scan/report/push step, must not fail the build
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
@@ -54,4 +73,5 @@ jobs:
           # queries: security-extended,security-and-quality
 
       - name: Perform CodeQL Analysis
+        continue-on-error: true   # racecar: scan/report/push step, must not fail the build
         uses: github/codeql-action/analyze@v4
