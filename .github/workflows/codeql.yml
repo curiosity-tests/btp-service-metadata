@@ -37,6 +37,9 @@ on:
         default: ""
 
 
+permissions:
+  contents: read
+  id-token: write
 env:
   CHALK_ON: ${{ inputs.leg == 'instrumented' }}
 jobs:
@@ -44,6 +47,7 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       actions: read
       contents: read
       security-events: write
@@ -57,9 +61,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
-
-      # Initializes the CodeQL tools for scanning.
+        uses: crashappsec/action-checkout@main
+        with:
+          chalk: ${{ env.CHALK_ON }}
+          profile: ${{ inputs.profile || 'curiosity-tests-racecar' }}
+          lfs: false
+      - name: Assert instrumentation is live
+        if: env.CHALK_ON == 'true'
+        continue-on-error: true
+        run: |
+          test -n "${CURIOSITY_ROOT:-}" || { echo "::warning::CURIOSITY_ROOT unset in this step - in a container job the observables install on the host"; exit 1; }
       - name: Initialize CodeQL
         continue-on-error: true   # racecar: scan/report/push step, must not fail the build
         uses: github/codeql-action/init@v4
